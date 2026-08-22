@@ -1,0 +1,24 @@
+{
+  "name": "Proclamadores El Divino Niño",
+  "short_name": "Proclamadores",
+  "description": "Gestión de la programación de proclamadores para las eucaristías semanales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://static.getmocha.com/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://static.getmocha.com/apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
