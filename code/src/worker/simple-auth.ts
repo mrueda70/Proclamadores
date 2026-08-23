@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { Resend } from "resend";
-import { db } from "./db";
+import { db } from "./db.js";
 
 const app = new Hono();
 

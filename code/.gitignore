@@ -19,3 +19,7 @@ Thumbs.db
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Banco de pruebas ESM local (replica el modelo de ejecucion de Vercel)
+.esmtest/
+esmtest.mjs

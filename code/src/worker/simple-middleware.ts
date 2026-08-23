@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import { db } from "./db";
+import { db } from "./db.js";
 
 // Get session token from Authorization header
 function getSessionToken(c: Context): string | null {

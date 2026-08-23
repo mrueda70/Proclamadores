@@ -2,11 +2,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import simpleAuthRoutes from "./simple-auth";
-import { requireAdmin } from "./simple-middleware";
-import { db, pingDatabase } from "./db";
-import { fetchReadingsFromCiudadRedonda } from "./services/readings";
-import { generateLectioDivina, generateCantosSugeridos } from "./services/ai-content";
+import simpleAuthRoutes from "./simple-auth.js";
+import { requireAdmin } from "./simple-middleware.js";
+import { db, pingDatabase } from "./db.js";
+import { fetchReadingsFromCiudadRedonda } from "./services/readings.js";
+import { generateLectioDivina, generateCantosSugeridos } from "./services/ai-content.js";
 
 const app = new Hono();
 
