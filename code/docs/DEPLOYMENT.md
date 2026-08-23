@@ -110,3 +110,36 @@ Cómo leer el resultado:
 
 Los errores no controlados de la API ahora responden JSON (`{ error, message }`) en vez de un
 500 opaco, así que la pestaña Network del navegador muestra la causa real.
+
+## Restriccion importante: imports con extension en el codigo de la API
+
+Vercel **no empaqueta** las funciones del directorio `api/`: transpila cada `.ts` a `.js` y los
+ejecuta con el cargador **ESM nativo** de Node. Como `package.json` declara `"type": "module"`,
+Node exige **extension explicita** en los imports relativos.
+
+```ts
+import { db } from "./db";      // rompe en produccion: ERR_MODULE_NOT_FOUND
+import { db } from "./db.js";   // correcto (apunta al .ts, la extension es la del archivo emitido)
+```
+
+Esto aplica a todo el grafo de modulos alcanzable desde `api/` — es decir, `src/worker/**`.
+NO aplica a `src/react-app/**`, que lo empaqueta Vite.
+
+`tsconfig.worker.json` usa `"moduleResolution": "nodenext"` justamente para que esto sea un error
+de compilacion (`TS2835`) y el build falle, en vez de desplegar una funcion que revienta al
+arrancar. No cambies esa opcion a `bundler`: con ella `tsc` acepta los imports sin extension y el
+fallo reaparece solo en produccion.
+
+Ojo tambien con el alias `@/*`: funciona en el frontend (lo resuelve Vite) pero NO en el codigo
+de la API, porque Node no conoce ese alias en tiempo de ejecucion. En `src/worker/**` usa solo
+rutas relativas con extension.
+
+### Como verificar el codigo de la API como lo ejecuta Vercel
+
+Empaquetar con esbuild NO sirve para validar esto: el bundler resuelve los imports sin extension
+y da un falso verde. Hay que transpilar sin empaquetar y ejecutar con el ESM nativo:
+
+```bash
+npx esbuild $(find src/worker api -name '*.ts') --outdir=.esmtest --outbase=.   --format=esm --platform=node
+node -e "import('./.esmtest/api/index.js').then(()=>console.log('carga OK'))"
+```
