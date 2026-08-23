@@ -11,23 +11,38 @@ import postgres from "postgres";
  * `?` placeholders are translated to Postgres's `$1, $2, ...` positional placeholders.
  */
 
-const connectionString = process.env.DATABASE_URL;
+type Sql = ReturnType<typeof postgres>;
 
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is not set. Add your Supabase Postgres connection string as an environment variable."
-  );
+let client: Sql | null = null;
+
+/**
+ * The connection is created lazily rather than at import time: a missing DATABASE_URL
+ * during module evaluation would crash the serverless function before any route runs,
+ * turning every single endpoint into an opaque 500. Failing here instead lets the
+ * error surface as a readable JSON response.
+ */
+function getClient(): Sql {
+  if (client) return client;
+
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL no está configurada. Agrégala en Vercel: Project Settings -> Environment Variables."
+    );
+  }
+
+  // Supabase's connection pooler (recommended for serverless) runs in PgBouncer "transaction"
+  // mode, which doesn't support server-side prepared statements — so `prepare: false` is required.
+  // `max: 1` keeps each serverless function instance from opening more than one connection.
+  client = postgres(connectionString, {
+    ssl: "require",
+    prepare: false,
+    max: 1,
+    idle_timeout: 20,
+  });
+
+  return client;
 }
-
-// Supabase's connection pooler (recommended for serverless) runs in PgBouncer "transaction"
-// mode, which doesn't support server-side prepared statements — so `prepare: false` is required.
-// `max: 1` keeps each serverless function instance from opening more than one connection.
-const sql = postgres(connectionString, {
-  ssl: "require",
-  prepare: false,
-  max: 1,
-  idle_timeout: 20,
-});
 
 function toPositionalParams(query: string): string {
   let index = 0;
@@ -44,19 +59,23 @@ class PreparedStatement {
     return new PreparedStatement(this.text, args);
   }
 
+  private execute(): Promise<any[]> {
+    return getClient().unsafe(toPositionalParams(this.text), this.params as any[]) as any;
+  }
+
   async first<T = any>(): Promise<T | null> {
-    const rows = await sql.unsafe(toPositionalParams(this.text), this.params as any[]);
+    const rows = await this.execute();
     return (rows[0] as T) ?? null;
   }
 
   async all<T = any>(): Promise<{ results: T[] }> {
-    const rows = await sql.unsafe(toPositionalParams(this.text), this.params as any[]);
-    return { results: rows as unknown as T[] };
+    const rows = await this.execute();
+    return { results: rows as T[] };
   }
 
   async run<T = any>(): Promise<{ results: T[] }> {
-    const rows = await sql.unsafe(toPositionalParams(this.text), this.params as any[]);
-    return { results: rows as unknown as T[] };
+    const rows = await this.execute();
+    return { results: rows as T[] };
   }
 }
 
@@ -65,3 +84,8 @@ export const db = {
     return new PreparedStatement(text);
   },
 };
+
+/** Round-trips a trivial query, used by the /api/health endpoint. */
+export async function pingDatabase(): Promise<void> {
+  await getClient().unsafe("SELECT 1", []);
+}

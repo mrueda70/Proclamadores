@@ -46,7 +46,7 @@ Copia `.env.example` a `.env` para desarrollo local y complétalo:
 6. Deploy.
 
 La API queda expuesta bajo `/api/*` (misma ruta que usaba el Worker), servida por
-[`api/[[...route]].ts`](../api/[[...route]].ts), y el resto de rutas cae al SPA (`vercel.json`
+[`api/[...route].ts`](../api/[...route].ts), y el resto de rutas cae al SPA (`vercel.json`
 reescribe todo lo que no sea `/api/*` hacia `index.html`).
 
 ## 4. Probar localmente antes de desplegar
@@ -83,3 +83,24 @@ responderán — para eso hace falta `vercel dev` (o desplegar).
 - El favicon y apple-touch-icon apuntaban a `static.getmocha.com`; también se descargaron a
   `public/` y se auto-hospedan.
 - La tabla `user_roles` (del login de Google, sin uso) no se migró.
+
+## Diagnóstico rápido (`/api/health`)
+
+Si algo falla en producción, abre `https://TU-APP.vercel.app/api/health`. Devuelve JSON:
+
+```json
+{ "ok": true, "env": { "DATABASE_URL": true, ... }, "database": "conectada" }
+```
+
+Cómo leer el resultado:
+
+- **404 / te devuelve el HTML del index**: la función serverless no se está mapeando. Revisa que
+  exista `api/[...route].ts` (corchetes simples — `[[...route]]` es sintaxis de Next.js y Vercel
+  NO la reconoce en un directorio `api/` de un proyecto Vite) y que el Root Directory del
+  proyecto en Vercel sea `code/`.
+- **`ok: false` con algún campo de `env` en `false`**: falta esa variable de entorno en Vercel.
+- **`ok: false` con `database: "error"`**: la `DATABASE_URL` está mal o no es la del pooler.
+  Debe apuntar al puerto `6543` (Transaction pooler), no al `5432` de conexión directa.
+
+Los errores no controlados de la API ahora responden JSON (`{ error, message }`) en vez de un
+500 opaco, así que la pestaña Network del navegador muestra la causa real.

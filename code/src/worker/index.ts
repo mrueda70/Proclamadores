@@ -4,13 +4,48 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import simpleAuthRoutes from "./simple-auth";
 import { requireAdmin } from "./simple-middleware";
-import { db } from "./db";
+import { db, pingDatabase } from "./db";
 import { fetchReadingsFromCiudadRedonda } from "./services/readings";
 import { generateLectioDivina, generateCantosSugeridos } from "./services/ai-content";
 
 const app = new Hono();
 
 app.use("/*", cors());
+
+// Returns JSON on unhandled errors instead of an opaque platform 500, so a
+// misconfigured environment is diagnosable from the browser's network tab.
+app.onError((err, c) => {
+  console.error("Unhandled API error:", err);
+  return c.json(
+    { error: "Error interno del servidor", message: err.message },
+    500
+  );
+});
+
+// Diagnostic endpoint: confirms the function is reachable, the environment
+// variables are present, and the database answers.
+app.get("/api/health", async (c) => {
+  const env = {
+    DATABASE_URL: Boolean(process.env.DATABASE_URL),
+    GEMINI_API_KEY: Boolean(process.env.GEMINI_API_KEY),
+    RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY),
+  };
+
+  try {
+    await pingDatabase();
+    return c.json({ ok: true, env, database: "conectada" });
+  } catch (error) {
+    return c.json(
+      {
+        ok: false,
+        env,
+        database: "error",
+        message: error instanceof Error ? error.message : "Error desconocido",
+      },
+      500
+    );
+  }
+});
 
 // Simple auth routes
 app.route("/", simpleAuthRoutes);
