@@ -46,7 +46,7 @@ Copia `.env.example` a `.env` para desarrollo local y complétalo:
 6. Deploy.
 
 La API queda expuesta bajo `/api/*` (misma ruta que usaba el Worker), servida por
-[`api/[...route].ts`](../api/[...route].ts), y el resto de rutas cae al SPA (`vercel.json`
+[`api/index.ts`](../api/index.ts), y el resto de rutas cae al SPA (`vercel.json`
 reescribe todo lo que no sea `/api/*` hacia `index.html`).
 
 ## 4. Probar localmente antes de desplegar
@@ -94,10 +94,16 @@ Si algo falla en producción, abre `https://TU-APP.vercel.app/api/health`. Devue
 
 Cómo leer el resultado:
 
-- **404 / te devuelve el HTML del index**: la función serverless no se está mapeando. Revisa que
-  exista `api/[...route].ts` (corchetes simples — `[[...route]]` es sintaxis de Next.js y Vercel
-  NO la reconoce en un directorio `api/` de un proyecto Vite) y que el Root Directory del
-  proyecto en Vercel sea `code/`.
+- **404 con `{"error":"Ruta no encontrada","path":"..."}`**: la función SÍ responde; el problema
+  es de enrutamiento. El campo `path` muestra la ruta que Hono recibió — si no coincide con la
+  que pediste, el rewrite de `vercel.json` no está preservando la ruta original.
+- **404 de Vercel ("The page could not be found")**: la función no se está mapeando. Revisa que
+  exista `api/index.ts`, que `vercel.json` tenga el rewrite `/api/(.*)` -> `/api`, y que el Root
+  Directory del proyecto en Vercel sea `code/`.
+- **500 `FUNCTION_INVOCATION_FAILED`** (texto plano, no JSON): la función revienta al invocarse.
+  Casi siempre es un adaptador equivocado: el directorio `api/` corre en runtime **Node**, que
+  invoca `(req, res)`. Hay que usar `getRequestListener` de `@hono/node-server` — `handle` de
+  `hono/vercel` devuelve un handler Web `(Request)` y falla en toda invocación.
 - **`ok: false` con algún campo de `env` en `false`**: falta esa variable de entorno en Vercel.
 - **`ok: false` con `database: "error"`**: la `DATABASE_URL` está mal o no es la del pooler.
   Debe apuntar al puerto `6543` (Transaction pooler), no al `5432` de conexión directa.

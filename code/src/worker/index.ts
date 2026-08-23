@@ -1352,4 +1352,10 @@ app.post("/api/auto-assign", requireAdmin, zValidator("json", autoAssignSchema),
   }
 });
 
+// Makes routing problems diagnosable: reports the path Hono actually received, which
+// is what reveals a misconfigured rewrite (e.g. the original path not being preserved).
+app.notFound((c) =>
+  c.json({ error: "Ruta no encontrada", path: new URL(c.req.url).pathname }, 404)
+);
+
 export default app;
