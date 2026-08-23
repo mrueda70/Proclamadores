@@ -1,0 +1,9 @@
+# Raw Mocha export artifacts — contain production data (reader names/emails/phones,
+# Google account info) and secrets. Kept locally for reference; never commit them.
+.env
+d1_dump.sql
+users.json
+public_asset_links.json
+
+desktop.ini
+Thumbs.db

@@ -3,14 +3,6 @@ import { createRoot } from "react-dom/client";
 import "@/react-app/index.css";
 import App from "@/react-app/App.tsx";
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-)
-
-
 // Register service worker for PWA and offline support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

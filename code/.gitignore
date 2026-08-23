@@ -1,0 +1,21 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Vercel
+.vercel
+
+# Environment variables (never commit real secrets)
+.env
+.env.local
+.env.*.local
+
+# Editor/OS
+.vscode/*
+!.vscode/extensions.json
+desktop.ini
+Thumbs.db
+
+# TypeScript build cache
+*.tsbuildinfo

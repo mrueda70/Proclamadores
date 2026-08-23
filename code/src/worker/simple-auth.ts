@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { Resend } from "resend";
+import { db } from "./db";
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono();
 
 // Helper function to generate a random session token
 function generateSessionToken(): string {
@@ -63,7 +64,6 @@ async function deleteSession(db: any, token: string) {
 
 // Login as user (read-only)
 app.post("/api/auth/user-login", async (c) => {
-  const db = c.env.DB;
   const token = generateSessionToken();
   const expiresAt = Date.now() + (60 * 24 * 60 * 60 * 1000); // 60 days
   
@@ -80,7 +80,6 @@ const pinSchema = z.object({
 
 app.post("/api/auth/admin-login", zValidator("json", pinSchema), async (c) => {
   const { pin } = c.req.valid("json");
-  const db = c.env.DB;
   
   const adminPin = await db
     .prepare("SELECT pin FROM admin_pin ORDER BY id DESC LIMIT 1")
@@ -88,9 +87,9 @@ app.post("/api/auth/admin-login", zValidator("json", pinSchema), async (c) => {
   
   if (!adminPin || adminPin.pin !== pin) {
     // Send email with correct PIN
-    if (c.env.RESEND_API_KEY) {
+    if (process.env.RESEND_API_KEY) {
       try {
-        const resend = new Resend(c.env.RESEND_API_KEY);
+        const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: "Parroquia Sistema <onboarding@resend.dev>",
           to: "lmrueda70@gmail.com",
@@ -121,7 +120,6 @@ app.post("/api/auth/admin-login", zValidator("json", pinSchema), async (c) => {
 
 // Get current session
 app.get("/api/auth/session", async (c) => {
-  const db = c.env.DB;
   const token = getSessionToken(c);
   
   if (!token) {
@@ -142,7 +140,6 @@ app.get("/api/auth/session", async (c) => {
 
 // Logout
 app.post("/api/auth/logout", async (c) => {
-  const db = c.env.DB;
   const token = getSessionToken(c);
   
   if (token) {
@@ -158,7 +155,6 @@ const changePinSchema = z.object({
 });
 
 app.post("/api/auth/change-pin", zValidator("json", changePinSchema), async (c) => {
-  const db = c.env.DB;
   const token = getSessionToken(c);
   
   if (!token) {
@@ -187,7 +183,6 @@ app.post("/api/auth/change-pin", zValidator("json", changePinSchema), async (c) 
 
 // Get current admin PIN (admin only)
 app.get("/api/auth/current-pin", async (c) => {
-  const db = c.env.DB;
   const token = getSessionToken(c);
   
   console.log("Getting current PIN - token:", token ? "present" : "missing");
@@ -229,7 +224,6 @@ const securityQuestionSchema = z.object({
 });
 
 app.post("/api/auth/update-security-question", zValidator("json", securityQuestionSchema), async (c) => {
-  const db = c.env.DB;
   const token = getSessionToken(c);
   
   if (!token) {
@@ -261,7 +255,6 @@ app.post("/api/auth/update-security-question", zValidator("json", securityQuesti
 
 // Get security question (public - no authentication required)
 app.get("/api/auth/security-question", async (c) => {
-  const db = c.env.DB;
   const adminPin = await db
     .prepare("SELECT security_question FROM admin_pin ORDER BY id DESC LIMIT 1")
     .first();
@@ -280,7 +273,6 @@ const verifyAnswerSchema = z.object({
 
 app.post("/api/auth/verify-security-answer", zValidator("json", verifyAnswerSchema), async (c) => {
   const { answer } = c.req.valid("json");
-  const db = c.env.DB;
   
   const adminPin = await db
     .prepare("SELECT pin, security_answer FROM admin_pin ORDER BY id DESC LIMIT 1")

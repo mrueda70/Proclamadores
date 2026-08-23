@@ -4,10 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import simpleAuthRoutes from "./simple-auth";
 import { requireAdmin } from "./simple-middleware";
+import { db } from "./db";
 import { fetchReadingsFromCiudadRedonda } from "./services/readings";
 import { generateLectioDivina, generateCantosSugeridos } from "./services/ai-content";
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono();
 
 app.use("/*", cors());
 
@@ -67,13 +68,11 @@ const readerAvailabilitySchema = z.object({
 // GET is public so user view can see reader names
 // POST, PUT, DELETE require admin
 app.get("/api/readers", async (c) => {
-  const db = c.env.DB;
   const readers = await db.prepare("SELECT * FROM readers ORDER BY name").all();
   return c.json(readers.results);
 });
 
 app.post("/api/readers", requireAdmin, zValidator("json", readerSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
 
   const result = await db
@@ -87,7 +86,6 @@ app.post("/api/readers", requireAdmin, zValidator("json", readerSchema), async (
 });
 
 app.put("/api/readers/:id", requireAdmin, zValidator("json", readerSchema), async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
   const data = c.req.valid("json");
 
@@ -106,7 +104,6 @@ app.put("/api/readers/:id", requireAdmin, zValidator("json", readerSchema), asyn
 });
 
 app.delete("/api/readers/:id", requireAdmin, async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
 
   // Remove reader from all mass assignments
@@ -157,7 +154,6 @@ app.delete("/api/readers/:id", requireAdmin, async (c) => {
 
 // Reader availability endpoints
 app.get("/api/readers/:id/availability", async (c) => {
-  const db = c.env.DB;
   const readerId = parseInt(c.req.param("id"));
 
   const availability = await db
@@ -169,7 +165,6 @@ app.get("/api/readers/:id/availability", async (c) => {
 });
 
 app.put("/api/readers/:id/availability", requireAdmin, zValidator("json", readerAvailabilitySchema), async (c) => {
-  const db = c.env.DB;
   const readerId = parseInt(c.req.param("id"));
   const data = c.req.valid("json");
 
@@ -200,7 +195,6 @@ app.put("/api/readers/:id/availability", requireAdmin, zValidator("json", reader
 
 // Get all reader availability (for auto-assignment)
 app.get("/api/reader-availability", async (c) => {
-  const db = c.env.DB;
 
   const availability = await db
     .prepare(`
@@ -217,7 +211,6 @@ app.get("/api/reader-availability", async (c) => {
 
 // Mass endpoints
 app.get("/api/masses", async (c) => {
-  const db = c.env.DB;
   const masses = await db
     .prepare("SELECT * FROM masses ORDER BY mass_date, mass_time")
     .all();
@@ -225,7 +218,6 @@ app.get("/api/masses", async (c) => {
 });
 
 app.post("/api/masses", requireAdmin, zValidator("json", massSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
 
   const result = await db
@@ -264,7 +256,6 @@ app.post("/api/masses", requireAdmin, zValidator("json", massSchema), async (c) 
 });
 
 app.put("/api/masses/:id", requireAdmin, zValidator("json", massSchema), async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
   const data = c.req.valid("json");
 
@@ -315,7 +306,6 @@ app.put(
   requireAdmin,
   zValidator("json", assignmentSchema),
   async (c) => {
-    const db = c.env.DB;
     const id = parseInt(c.req.param("id"));
     const data = c.req.valid("json");
 
@@ -355,7 +345,6 @@ app.put(
 );
 
 app.delete("/api/masses/:id", requireAdmin, async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
 
   const result = await db
@@ -396,7 +385,6 @@ const celebrationRolesSchema = z.object({
 });
 
 app.post("/api/masses/copy-schedule", requireAdmin, zValidator("json", copyScheduleSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
 
   // Fetch all masses in the source date range
@@ -470,7 +458,6 @@ app.post("/api/masses/copy-schedule", requireAdmin, zValidator("json", copySched
 // Fetch daily readings from Ciudad Redonda
 app.get("/api/readings/:date", async (c) => {
   const date = c.req.param("date");
-  const db = c.env.DB;
   
   try {
     // First, check if readings are cached in database
@@ -577,8 +564,7 @@ app.get("/api/readings/:date", async (c) => {
 // AI Content endpoints - Lectio Divina
 app.get("/api/lectio-divina/:date", async (c) => {
   const date = c.req.param("date");
-  const apiKey = (c.env as any).GEMINI_API_KEY as string;
-  const db = c.env.DB;
+  const apiKey = process.env.GEMINI_API_KEY as string;
   
   try {
     // Check for cached AI content first
@@ -671,8 +657,8 @@ app.get("/api/lectio-divina/:date", async (c) => {
     // Cache the generated content
     await db.prepare(
       `INSERT INTO cached_ai_content (content_date, content_type, content, created_at, updated_at)
-       VALUES (?, 'lectio_divina', ?, datetime('now'), datetime('now'))
-       ON CONFLICT(content_date, content_type) DO UPDATE SET content = excluded.content, updated_at = datetime('now')`
+       VALUES (?, 'lectio_divina', ?, now(), now())
+       ON CONFLICT(content_date, content_type) DO UPDATE SET content = excluded.content, updated_at = now()`
     ).bind(date, JSON.stringify(response)).run();
     
     return c.json(response);
@@ -699,8 +685,7 @@ app.get("/api/lectio-divina/:date", async (c) => {
 // AI Content endpoints - Cantos Sugeridos
 app.get("/api/cantos-sugeridos/:date", async (c) => {
   const date = c.req.param("date");
-  const apiKey = (c.env as any).GEMINI_API_KEY as string;
-  const db = c.env.DB;
+  const apiKey = process.env.GEMINI_API_KEY as string;
   
   try {
     // Check for cached AI content first
@@ -768,8 +753,8 @@ app.get("/api/cantos-sugeridos/:date", async (c) => {
     // Cache the generated content
     await db.prepare(
       `INSERT INTO cached_ai_content (content_date, content_type, content, created_at, updated_at)
-       VALUES (?, 'cantos', ?, datetime('now'), datetime('now'))
-       ON CONFLICT(content_date, content_type) DO UPDATE SET content = excluded.content, updated_at = datetime('now')`
+       VALUES (?, 'cantos', ?, now(), now())
+       ON CONFLICT(content_date, content_type) DO UPDATE SET content = excluded.content, updated_at = now()`
     ).bind(date, JSON.stringify(response)).run();
     
     return c.json(response);
@@ -801,7 +786,7 @@ app.delete("/api/cached-ai-content/:date", async (c) => {
   }
   
   const token = authHeader.replace("Bearer ", "");
-  const sessionResult = await c.env.DB.prepare(
+  const sessionResult = await db.prepare(
     "SELECT role FROM auth_sessions WHERE token = ? AND expires_at > ?"
   ).bind(token, Date.now()).first();
   const session = sessionResult as { role: string } | null;
@@ -811,7 +796,6 @@ app.delete("/api/cached-ai-content/:date", async (c) => {
   }
   
   const date = c.req.param("date");
-  const db = c.env.DB;
   
   try {
     await db.prepare("DELETE FROM cached_ai_content WHERE content_date = ?").bind(date).run();
@@ -824,7 +808,6 @@ app.delete("/api/cached-ai-content/:date", async (c) => {
 
 // Special Celebrations endpoints
 app.get("/api/special-celebrations", async (c) => {
-  const db = c.env.DB;
   
   // Fetch all celebrations
   const celebrations = await db
@@ -850,7 +833,6 @@ app.get("/api/special-celebrations", async (c) => {
 });
 
 app.post("/api/special-celebrations", requireAdmin, zValidator("json", specialCelebrationSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
 
   const result = await db
@@ -865,7 +847,6 @@ app.post("/api/special-celebrations", requireAdmin, zValidator("json", specialCe
 });
 
 app.put("/api/special-celebrations/:id", requireAdmin, zValidator("json", specialCelebrationSchema), async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
   const data = c.req.valid("json");
 
@@ -886,7 +867,6 @@ app.put("/api/special-celebrations/:id", requireAdmin, zValidator("json", specia
 });
 
 app.delete("/api/special-celebrations/:id", requireAdmin, async (c) => {
-  const db = c.env.DB;
   const id = parseInt(c.req.param("id"));
 
   // Delete all roles associated with this celebration first
@@ -909,7 +889,6 @@ app.delete("/api/special-celebrations/:id", requireAdmin, async (c) => {
 });
 
 app.put("/api/special-celebrations/:id/roles", requireAdmin, zValidator("json", celebrationRolesSchema), async (c) => {
-  const db = c.env.DB;
   const celebrationId = parseInt(c.req.param("id"));
   const data = c.req.valid("json");
 
@@ -956,7 +935,6 @@ app.put("/api/special-celebrations/:id/roles", requireAdmin, zValidator("json", 
 // Refresh cached readings for a specific date (admin only)
 app.post("/api/readings/:date/refresh", requireAdmin, async (c) => {
   const date = c.req.param("date");
-  const db = c.env.DB;
   
   try {
     // Delete cached reading for this date
@@ -1025,7 +1003,6 @@ const refreshRangeSchema = z.object({
 });
 
 app.post("/api/readings/refresh-range", requireAdmin, zValidator("json", refreshRangeSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
   
   try {
@@ -1132,7 +1109,6 @@ const autoAssignSchema = z.object({
 });
 
 app.post("/api/auto-assign", requireAdmin, zValidator("json", autoAssignSchema), async (c) => {
-  const db = c.env.DB;
   const data = c.req.valid("json");
   
   try {
@@ -1338,31 +1314,6 @@ app.post("/api/auto-assign", requireAdmin, zValidator("json", autoAssignSchema),
     return c.json({ 
       error: error instanceof Error ? error.message : 'Error al procesar la solicitud'
     }, 500);
-  }
-});
-
-// Proxy endpoint to fetch the background image
-app.get("/api/background-image", async (c) => {
-  try {
-    const imageUrl = 'https://019c21ca-9140-7b20-943a-f6b1c29bd6d3.mochausercontent.com/image.png_2482.png';
-    const response = await fetch(imageUrl);
-    
-    if (!response.ok) {
-      return c.json({ error: 'Failed to fetch image' }, 500);
-    }
-    
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    
-    return new Response(arrayBuffer, {
-      headers: {
-        'Content-Type': 'image/png',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=86400'
-      }
-    });
-  } catch (error) {
-    return c.json({ error: 'Failed to fetch image' }, 500);
   }
 });
 

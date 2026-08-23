@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import { db } from "./db";
 
 // Get session token from Authorization header
 function getSessionToken(c: Context): string | null {
@@ -25,7 +26,6 @@ async function getSession(db: any, token: string): Promise<{ role: string; expir
 
 // Middleware that requires admin role
 export const requireAdmin = async (c: Context, next: Next) => {
-  const db = (c.env as any).DB;
   const token = getSessionToken(c);
   
   if (!token) {

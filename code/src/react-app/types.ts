@@ -1,5 +1,3 @@
-import type { MochaUser } from "@getmocha/users-service/shared";
-
 export interface Reader {
   id: number;
   name: string;
@@ -57,10 +55,6 @@ export interface SpecialCelebration {
   roles?: SpecialCelebrationRole[];
   created_at: string;
   updated_at: string;
-}
-
-export interface UserWithRole extends MochaUser {
-  role: "admin" | "user";
 }
 
 export type CelebrationRole = SpecialCelebrationRole;

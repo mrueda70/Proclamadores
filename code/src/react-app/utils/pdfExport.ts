@@ -101,7 +101,7 @@ export async function exportWeeklyAssignmentsPDF(
   // Try to load and add background image with opacity
   try {
     const imgData = await loadImageWithOpacity(
-      '/api/background-image',
+      '/bg-image.png',
       0.60
     );
     
@@ -326,7 +326,7 @@ export async function exportWeeklyReadingsToPDF(
   // Try to load and add background image with opacity
   try {
     const imgData = await loadImageWithOpacity(
-      '/api/background-image',
+      '/bg-image.png',
       0.60
     );
     
@@ -519,7 +519,7 @@ export async function exportSpecialCelebrationsToPDF(
   // Try to load and add background image with opacity
   try {
     const imgData = await loadImageWithOpacity(
-      '/api/background-image',
+      '/bg-image.png',
       0.60
     );
     

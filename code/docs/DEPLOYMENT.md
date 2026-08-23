@@ -1,0 +1,85 @@
+# Despliegue en Supabase + Vercel
+
+Esta app se migró desde Mocha (Cloudflare Workers + D1) a:
+
+- **Vercel**: hosting del frontend (Vite/React) + la API (antes un Worker de Hono, ahora una
+  Vercel Function que corre el mismo código Hono vía el adaptador `hono/vercel`).
+- **Supabase**: base de datos Postgres (antes Cloudflare D1/SQLite).
+
+La autenticación PIN propia de la app (`admin_pin`, `auth_sessions`) se mantuvo tal cual —
+es la que realmente usa la app. El login por Google vía Mocha (`@getmocha/users-service`) nunca
+estaba conectado a ninguna ruta y se eliminó del código.
+
+## 1. Crear el proyecto en Supabase
+
+1. Entra a https://supabase.com, crea una cuenta/organización y un proyecto nuevo.
+2. Elige una contraseña de base de datos segura y guárdala.
+3. Ve a **SQL Editor** y ejecuta, en este orden:
+   1. El contenido de [`supabase/schema.sql`](../supabase/schema.sql) — crea las tablas.
+   2. El contenido de [`supabase/data.sql`](../supabase/data.sql) — carga los datos actuales
+      (lectores, misas, celebraciones especiales, el PIN de admin, lecturas y contenido de IA
+      ya cacheados).
+4. Ve a **Project Settings → Database → Connection string**, pestaña **URI**, y copia el string
+   del **Connection pooling** (modo *Transaction*, puerto `6543`) — NO el de conexión directa.
+   Reemplaza `[YOUR-PASSWORD]` por la contraseña que creaste. Ese es tu `DATABASE_URL`.
+
+   > Se usa el pooler (Supavisor) porque las funciones serverless de Vercel abren y cierran
+   > conexiones constantemente; con conexión directa se agotarían las conexiones de Postgres.
+
+## 2. Configurar variables de entorno
+
+Copia `.env.example` a `.env` para desarrollo local y complétalo:
+
+- `DATABASE_URL`: el connection string del paso anterior.
+- `GEMINI_API_KEY`: tu clave de Google Gemini (para Lectio Divina y cantos sugeridos).
+- `RESEND_API_KEY`: tu clave de Resend (para el correo de alerta de PIN incorrecto).
+
+## 3. Crear el proyecto en Vercel
+
+1. Sube este repo a GitHub/GitLab/Bitbucket (o usa `vercel` CLI directo desde tu máquina).
+2. En https://vercel.com, **Add New → Project**, importa el repo.
+3. **Root Directory**: selecciona `code/` (la app vive en esa carpeta, no en la raíz del repo).
+4. Framework Preset: Vercel debería detectar **Vite** automáticamente
+   (build command `npm run build`, output `dist`).
+5. En **Environment Variables**, agrega `DATABASE_URL`, `GEMINI_API_KEY` y `RESEND_API_KEY`
+   (los mismos valores de tu `.env`) para los entornos Production y Preview.
+6. Deploy.
+
+La API queda expuesta bajo `/api/*` (misma ruta que usaba el Worker), servida por
+[`api/[[...route]].ts`](../api/[[...route]].ts), y el resto de rutas cae al SPA (`vercel.json`
+reescribe todo lo que no sea `/api/*` hacia `index.html`).
+
+## 4. Probar localmente antes de desplegar
+
+```bash
+cd code
+npm install
+vercel link      # conecta esta carpeta a tu proyecto de Vercel (una sola vez)
+vercel env pull  # baja las env vars de Vercel a .env.local, o usa tu .env manual
+npm run dev:vercel   # levanta frontend + funciones /api juntos, como en producción
+```
+
+`npm run dev` (solo Vite) sirve para iterar en la UI, pero las llamadas a `/api/*` no
+responderán — para eso hace falta `vercel dev` (o desplegar).
+
+## 5. Después del primer deploy
+
+- Actualiza `og:image`/`og:url` en [`index.html`](../index.html) si quieres que las tarjetas de
+  vista previa (WhatsApp, redes) apunten a tu dominio final de Vercel.
+- El PIN de administrador actual y la pregunta de seguridad ya vienen cargados desde
+  `data.sql`; se pueden cambiar desde `/pin-management` una vez logueado como admin.
+- Los tokens de sesión viejos no se migraron (no tiene sentido, ya vencieron o están por
+  vencer) — todos deberán iniciar sesión de nuevo la primera vez.
+
+## Notas sobre lo que se eliminó
+
+- Rutas de Google OAuth (`/api/oauth/...`, `/api/sessions`, `src/worker/auth.ts`,
+  `src/worker/middleware.ts`) y las páginas `Login.tsx` / `AuthCallback.tsx`: no estaban
+  conectadas a ninguna ruta de la app (que usa `SimpleLogin.tsx` + PIN) y dependían de
+  `@getmocha/users-service`, que ya no existe fuera de Mocha.
+- El proxy `/api/background-image` (traía una imagen desde `mochausercontent.com`, que dejará
+  de existir): la imagen se descargó a [`public/bg-image.png`](../public/bg-image.png) y ahora
+  se sirve como archivo estático.
+- El favicon y apple-touch-icon apuntaban a `static.getmocha.com`; también se descargaron a
+  `public/` y se auto-hospedan.
+- La tabla `user_roles` (del login de Google, sin uso) no se migró.
