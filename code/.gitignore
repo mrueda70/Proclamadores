@@ -23,3 +23,6 @@ Thumbs.db
 # Banco de pruebas ESM local (replica el modelo de ejecucion de Vercel)
 .esmtest/
 esmtest.mjs
+
+# Respaldos de datos productivos: contienen datos personales y el PIN. Nunca subirlos.
+backups/

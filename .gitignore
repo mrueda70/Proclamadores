@@ -7,3 +7,6 @@ public_asset_links.json
 
 desktop.ini
 Thumbs.db
+
+# Respaldos locales de datos operativos (no deben ir al repositorio)
+backup_*.sql

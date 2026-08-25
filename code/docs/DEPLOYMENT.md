@@ -143,3 +143,44 @@ y da un falso verde. Hay que transpilar sin empaquetar y ejecutar con el ESM nat
 npx esbuild $(find src/worker api -name '*.ts') --outdir=.esmtest --outbase=.   --format=esm --platform=node
 node -e "import('./.esmtest/api/index.js').then(()=>console.log('carga OK'))"
 ```
+
+## Respaldos (`npm run backup`)
+
+Supabase en plan gratuito NO hace respaldos automaticos, y como desarrollo y produccion
+comparten la misma base, conviene respaldar antes de cualquier cambio importante.
+
+```bash
+cd code
+npm run backup                # backups/backup_2026-08-25_0330.sql (fecha y hora actuales)
+npm run backup -- 2026-08-24  # backups/backup_2026-08-24.sql (etiqueta a tu gusto)
+```
+
+Genera un `.sql` restaurable con todas las tablas de datos. No incluye `auth_sessions`
+(tokens desechables; guardarlos seria exponer credenciales). Los archivos quedan en
+`code/backups/`, que esta en `.gitignore`: **contienen datos personales y el PIN de
+administrador**, asi que no deben subirse al repositorio ni compartirse.
+
+Para restaurar, en el SQL Editor de Supabase: sobre una base vacia se ejecuta primero
+`supabase/schema.sql` y luego el respaldo; sobre una base con datos hay que descomentar el
+bloque BORRADO que el propio archivo trae al inicio.
+
+### Cuidado: nunca uses SET sobre la conexion del pooler
+
+El pooler de Supabase (puerto 6543) trabaja en modo *transaction*: reparte las mismas
+conexiones de servidor entre todos los clientes. Un `SET` fuera de una transaccion queda
+pegado a esa conexion y lo hereda quien la reciba despues — incluida la app en produccion.
+
+Ejecutar `SET search_path TO otro_esquema` en un script suelto dejo a toda la API
+respondiendo `relation "readers" does not exist`, porque las funciones de Vercel heredaron
+esa conexion. Los datos no se ven afectados, pero la app queda caida hasta arreglarlo.
+
+Si necesitas trabajar contra otro esquema, califica los nombres (`otro_esquema.readers`) o
+usa `SET LOCAL` dentro de una transaccion, que se revierte al terminar. Para recuperarte de
+una conexion ya contaminada:
+
+```sql
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+WHERE usename = current_user AND pid <> pg_backend_pid();
+```
+
+El pooler abrira conexiones nuevas, que tomaran el `search_path` correcto del rol.
