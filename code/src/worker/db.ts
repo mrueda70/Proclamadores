@@ -39,6 +39,26 @@ function getClient(): Sql {
     prepare: false,
     max: 1,
     idle_timeout: 20,
+    types: {
+      // Keep DATE/TIMESTAMP columns as the plain strings Postgres sends on the wire
+      // ("2026-08-24", "2026-02-04 01:44:53") instead of parsing them into JS Date objects.
+      //
+      // The app was written against SQLite/D1, which returned exactly those strings, and the
+      // UI relies on that shape — it builds dates by concatenation, e.g.
+      // `new Date(mass_date + "T00:00:00")`. A Date object serializes to JSON as a full ISO
+      // timestamp, so that concatenation yields "...ZT00:00:00" -> Invalid Date, and the
+      // formatting helpers then index an array with NaN and crash the page.
+      //
+      // Only the parser is overridden; `serialize` mirrors the library default so binding
+      // parameters keeps working exactly as before.
+      date: {
+        to: 1184,
+        from: [1082, 1114, 1184],
+        parse: (value: string) => value,
+        serialize: (value: unknown) =>
+          (value instanceof Date ? value : new Date(value as string)).toISOString(),
+      },
+    },
   });
 
   return client;
