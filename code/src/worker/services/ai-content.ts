@@ -1,7 +1,20 @@
 /**
  * Service for generating AI-powered content (Lectio Divina and Cantos)
  */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+
+/**
+ * Modelo de Gemini a usar. Google retira modelos con el tiempo — `gemini-2.5-flash` dejo de
+ * aceptar claves nuevas y devolvia 404 — asi que se puede cambiar por la variable de entorno
+ * GEMINI_MODEL sin tocar el codigo ni volver a desplegar.
+ */
+const MODELO = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+
+/**
+ * Reduce el "pensamiento" del modelo para responder mas rapido.
+ * Antes se usaba `thinkingBudget: 0`, que gemini-3.6-flash rechaza con 400 INVALID_ARGUMENT.
+ */
+const CONFIG_RAPIDA = { thinkingLevel: ThinkingLevel.LOW };
 
 interface LectioDivinaContent {
   lectio: string;
@@ -86,7 +99,7 @@ Responde en formato JSON con la siguiente estructura:
 El contenido debe ser profundo pero accesible, en español, y adecuado para laicos católicos.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODELO,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -101,9 +114,7 @@ El contenido debe ser profundo pero accesible, en español, y adecuado para laic
         },
         required: ["lectio", "meditatio", "oratio", "contemplatio", "actio"]
       },
-      thinkingConfig: {
-        thinkingBudget: 0
-      }
+      thinkingConfig: CONFIG_RAPIDA
     }
   });
 
@@ -179,7 +190,7 @@ IMPORTANTE:
 - NO incluyas enlaces de YouTube.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: MODELO,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -203,9 +214,7 @@ IMPORTANTE:
         },
         required: ["cantos"]
       },
-      thinkingConfig: {
-        thinkingBudget: 0
-      }
+      thinkingConfig: CONFIG_RAPIDA
     }
   });
 
