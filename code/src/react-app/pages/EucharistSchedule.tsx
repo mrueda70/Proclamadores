@@ -4,6 +4,7 @@ import { Calendar, ArrowLeft, Loader2 } from "lucide-react";
 import type { Mass, Reader } from "@/react-app/types";
 import { formatTimeTo12Hour } from "@/react-app/utils/timeFormat";
 import { formatSpanishDate } from "@/react-app/utils/dateFormat";
+import { getWeekStart, toDateString } from '@/react-app/utils/weekHelpers';
 
 export default function EucharistSchedule() {
   const navigate = useNavigate();
@@ -38,21 +39,13 @@ export default function EucharistSchedule() {
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(date.getDate() + i);
-      dates.push(date.toISOString().split("T")[0]);
+      dates.push(toDateString(date));
     }
     return dates;
   };
 
   // Get today's date
   const today = new Date();
-
-  // Get this week's start (Monday)
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
-  };
 
   const currentWeekStart = getWeekStart(today);
   const previousWeekStart = new Date(currentWeekStart);

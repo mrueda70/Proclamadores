@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { decodeHTMLEntities } from '@/react-app/utils/htmlDecode';
 import { formatSpanishDate } from '@/react-app/utils/dateFormat';
 import { useAuth } from '@/react-app/contexts/AuthContext';
+import { getWeekStart } from '@/react-app/utils/weekHelpers';
 
 function PsalmText({ text }: { text: string }) {
   const decodedText = decodeHTMLEntities(text);
@@ -165,16 +166,6 @@ export default function DailyReadings() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const requestedDate = new Date(date + 'T00:00:00');
-      
-      // Get week start (Monday)
-      const getWeekStart = (d: Date) => {
-        const dateObj = new Date(d);
-        const day = dateObj.getDay();
-        const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
-        dateObj.setDate(diff);
-        dateObj.setHours(0, 0, 0, 0);
-        return dateObj;
-      };
       
       const weekStart = getWeekStart(today);
       const twoWeeksEnd = new Date(weekStart);

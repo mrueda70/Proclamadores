@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Wand2, Check, AlertCircle, Users, Calendar, Clock } from 'lucide-react';
 import { useAutoAssign, Assignment } from '@/react-app/hooks/useAutoAssign';
+import { getWeekStart, getWeekEnd, toDateString } from '@/react-app/utils/weekHelpers';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -87,14 +88,11 @@ export default function AdminAutoAssign() {
   const { loading, error, result, generateAssignments, applyAssignments, clearResult } = useAutoAssign();
   
   // Default to current week
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  
-  const [startDate, setStartDate] = useState(startOfWeek.toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(endOfWeek.toISOString().split('T')[0]);
+  const startOfWeek = getWeekStart(new Date());
+  const endOfWeek = getWeekEnd(startOfWeek);
+
+  const [startDate, setStartDate] = useState(toDateString(startOfWeek));
+  const [endDate, setEndDate] = useState(toDateString(endOfWeek));
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
 

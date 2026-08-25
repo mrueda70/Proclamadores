@@ -5,6 +5,7 @@ import { useReadings } from "@/react-app/hooks/useReadings";
 import { decodeHTMLEntities } from "@/react-app/utils/htmlDecode";
 import { formatSpanishDate } from "@/react-app/utils/dateFormat";
 import { useAuth } from "@/react-app/contexts/AuthContext";
+import { getWeekStart } from '@/react-app/utils/weekHelpers';
 
 export default function WeeklyReadings() {
   const navigate = useNavigate();
@@ -37,12 +38,7 @@ export default function WeeklyReadings() {
 
   // Calculate week start dates - memoized based on todayStr
   const { currentWeekStart, nextWeekStart } = useMemo(() => {
-    const today = new Date(todayStr + 'T12:00:00');
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const currentStart = new Date(today);
-    currentStart.setDate(diff);
-    currentStart.setHours(0, 0, 0, 0);
+    const currentStart = getWeekStart(new Date(todayStr + 'T12:00:00'));
     
     const nextStart = new Date(currentStart);
     nextStart.setDate(nextStart.getDate() + 7);

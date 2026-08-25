@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatSpanishDate } from '@/react-app/utils/dateFormat';
+import { getWeekStart, getWeekEnd } from '@/react-app/utils/weekHelpers';
 
 interface WeekSelectorProps {
   selectedWeekStart: Date;
@@ -7,43 +8,27 @@ interface WeekSelectorProps {
 }
 
 export default function WeekSelector({ selectedWeekStart, onWeekChange }: WeekSelectorProps) {
-  const getWeekRange = (date: Date) => {
-    const weekStart = new Date(date);
-    const day = weekStart.getDay();
-    const diff = weekStart.getDate() - day;
-    weekStart.setDate(diff);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-
-    return { weekStart, weekEnd };
-  };
-
-  const { weekStart, weekEnd } = getWeekRange(selectedWeekStart);
+  const weekStart = getWeekStart(selectedWeekStart);
+  const weekEnd = getWeekEnd(weekStart);
 
   const goToPreviousWeek = () => {
     const newDate = new Date(selectedWeekStart);
     newDate.setDate(newDate.getDate() - 7);
-    const normalized = getWeekRange(newDate).weekStart;
-    onWeekChange(normalized);
+    onWeekChange(getWeekStart(newDate));
   };
 
   const goToNextWeek = () => {
     const newDate = new Date(selectedWeekStart);
     newDate.setDate(newDate.getDate() + 7);
-    const normalized = getWeekRange(newDate).weekStart;
-    onWeekChange(normalized);
+    onWeekChange(getWeekStart(newDate));
   };
 
   const goToCurrentWeek = () => {
-    const normalized = getWeekRange(new Date()).weekStart;
-    onWeekChange(normalized);
+    onWeekChange(getWeekStart(new Date()));
   };
 
   const isCurrentWeek = () => {
-    const { weekStart: currentWeekStart } = getWeekRange(new Date());
-    return weekStart.getTime() === currentWeekStart.getTime();
+    return weekStart.getTime() === getWeekStart(new Date()).getTime();
   };
 
   const formatWeekRange = () => {
